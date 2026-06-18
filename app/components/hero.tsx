@@ -5,6 +5,7 @@ import { motion, AnimatePresence, useReducedMotion, useScroll, useTransform, typ
 import Clock from "../clock";
 import ProjectsCanvas from "./projects-canvas";
 import { projects, projectImages, num } from "./projects-data";
+import { onLoaderReady } from "./loader-ready";
 import styles from "../page.module.css";
 
 /* Hero with the work merged in — balanced φ 2-col: copy + info LEFT, selected
@@ -12,16 +13,18 @@ import styles from "../page.module.css";
      "carousel" → editorial card carousel (rhymes with the Services carousel)
      "featured" → one large glitch preview (ProjectsCanvas) + name switcher */
 
-export type HeroVariant = "carousel" | "featured" | "index" | "filmstrip" | "ghost";
+export type HeroVariant = "carousel" | "featured" | "index" | "filmstrip" | "ghost" | "bento";
+// bento entrance characters — swap via the `anim` prop to compare them live
+export type BentoAnim = "rise" | "scale" | "blur" | "wipe";
 
-const TITLE = "Your design deserves code that keeps up.";
+const TITLE = "Frontend Developer";
 const LEAD =
-  "I build the fast, accessible front end behind storefronts, CMS sites, and complex flows — so what your users see matches what your designers drew, pixel for pixel.";
+  "Storefronts, e-commerce, SaaS interfaces, landing pages, and the CMS behind them.";
 const LOCATION = "Cluj‑Napoca, Romania";
 
 const STATS = [
-  { num: "3+", label: "Years of experience" },
-  { num: "10+", label: "Storefronts shipped" },
+  { num: "4+", label: "Years of experience" },
+  { num: "15+", label: "Projects shipped" },
 ] as const;
 
 const EASE = [0.25, 1, 0.5, 1] as [number, number, number, number];
@@ -35,6 +38,41 @@ const stagger = (reduce: boolean): Variants => ({
 const item = (reduce: boolean): Variants => ({
   hidden: { opacity: 0, y: reduce ? 0 : 14 },
   visible: { opacity: 1, y: 0, transition: { duration: reduce ? 0.25 : 0.55, ease: EASE } },
+});
+
+// ── bento: per-cell entrance character (swapped by the `anim` prop) ──────────
+// Each returns the same hidden/visible contract so the grid's stagger drives any
+// of them. Reduced-motion collapses every character to a plain opacity fade.
+const cell = (anim: BentoAnim, reduce: boolean): Variants => {
+  if (reduce) return { hidden: { opacity: 0 }, visible: { opacity: 1, transition: { duration: 0.25 } } };
+  switch (anim) {
+    case "scale": // pop from 0.96 with a spring settle — tactile, physical
+      return {
+        hidden: { opacity: 0, scale: 0.96 },
+        visible: { opacity: 1, scale: 1, transition: { type: "spring", stiffness: 110, damping: 20, mass: 1.1 } },
+      };
+    case "blur": // fade from soft blur + slight rise — atmospheric depth
+      return {
+        hidden: { opacity: 0, y: 16, filter: "blur(14px)" },
+        visible: { opacity: 1, y: 0, filter: "blur(0px)", transition: { duration: 1.1, ease: EASE } },
+      };
+    case "wipe": // top-down clip-path reveal — architectural, deliberate
+      return {
+        hidden: { opacity: 0, clipPath: "inset(0 0 100% 0)" },
+        visible: { opacity: 1, clipPath: "inset(0 0 0% 0)", transition: { duration: 1.1, ease: EASE } },
+      };
+    case "rise": // fade + travel up — clean editorial cadence (default)
+    default:
+      return {
+        hidden: { opacity: 0, y: 24 },
+        visible: { opacity: 1, y: 0, transition: { duration: 0.9, ease: EASE } },
+      };
+  }
+};
+
+const bentoStagger = (reduce: boolean): Variants => ({
+  hidden: {},
+  visible: { transition: { staggerChildren: reduce ? 0 : 0.14, delayChildren: reduce ? 0 : 0.1 } },
 });
 
 // ── copy column (constant) ──────────────────────────────────────────────────
@@ -269,100 +307,163 @@ function IndexHero({ reduce }: { reduce: boolean }) {
   );
 }
 
-// ── variant B: FILMSTRIP — canon-composed hero, full-height 50vw work panel ──
-// Composition follows the Van de Graaf canon (asymmetric 1/9·2/9 margins).
-// Depth: elevated panel (cast shadow) + layered light/vignette + parallax —
-// the image drifts slower than the carousel scroll, and the copy rides a
-// shallower plane than the panel as the page scrolls. All disabled on reduce.
+// ── variant B: FILMSTRIP — full-height 50vw work panel, transform-track slider ──
+// The carousel is a translateY track (CSS transition), NOT native scroll — so the
+// transition is a guaranteed smooth SLIDE that snap can't hijack into a jump.
+// The image rides a slightly slower plane than the track (parallax-on-slide).
+// Wheel/keys/touch/dots all just set the active index; autoplay ping-pongs.
+const SCROLL_MS = 900;        // slide duration (ms) — higher = slower
+const AUTO_MS = 4200;         // autoplay dwell per card (ms) — higher = slower
+const AUTO_COOLDOWN = 9000;   // pause autoplay this long after a manual nudge (ms)
+const SLIDE_PARALLAX = 0;     // % the image lags the slide (depth); 0 = no parallax
+const SLIDE_SCALE = 1;        // overscan to cover the lag (≥ 1 + 2·PARALLAX/100); 1 = no zoom
+const SLIDE_EASE = "cubic-bezier(0.65, 0, 0.35, 1)";
+
 function FilmstripHero({ reduce }: { reduce: boolean }) {
   const sectionRef = useRef<HTMLElement>(null);
-  const stripRef = useRef<HTMLDivElement>(null);
-  const tilesRef = useRef<(HTMLElement | null)[]>([]);
-  const imgsRef = useRef<(HTMLImageElement | null)[]>([]);
-  const rafRef = useRef(0);
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const wheelLockRef = useRef(false);
+  const activeRef = useRef(0);
+  const hoverRef = useRef(false);    // autoplay paused while pointer/focus is inside
+  const resumeAtRef = useRef(0);     // autoplay paused until this timestamp (manual nudge)
+  const dirRef = useRef(1);          // autoplay direction (ping-pong)
+  const touchRef = useRef<number | null>(null);
   const [active, setActive] = useState(0);
+  const last = projects.length - 1;
 
   // page-scroll plane offset — copy rides a shallower plane than the panel
   const { scrollYProgress } = useScroll({ target: sectionRef, offset: ["start start", "end start"] });
   const copyY = useTransform(scrollYProgress, [0, 1], [0, reduce ? 0 : -64]);
   const copyOpacity = useTransform(scrollYProgress, [0, 0.85], [1, reduce ? 1 : 0.25]);
 
-  const goTo = (i: number) => {
-    tilesRef.current[i]?.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "center" });
-  };
+  const nudge = () => { resumeAtRef.current = performance.now() + AUTO_COOLDOWN; };
 
-  const step = (dir: 1 | -1) => goTo(Math.min(projects.length - 1, Math.max(0, active + dir)));
+  const goTo = (i: number) => {
+    const c = Math.min(last, Math.max(0, i));
+    activeRef.current = c;
+    setActive(c);
+  };
+  const step = (dir: 1 | -1) => goTo(activeRef.current + dir);
 
   const onKeyNav = (e: React.KeyboardEvent) => {
-    if (e.key === "ArrowDown" || e.key === "ArrowRight") { e.preventDefault(); step(1); }
-    else if (e.key === "ArrowUp" || e.key === "ArrowLeft") { e.preventDefault(); step(-1); }
+    if (e.key === "ArrowDown" || e.key === "ArrowRight") { e.preventDefault(); nudge(); step(1); }
+    else if (e.key === "ArrowUp" || e.key === "ArrowLeft") { e.preventDefault(); nudge(); step(-1); }
   };
 
-  // active = tile nearest panel centre; image parallaxes against its offset
-  const measure = () => {
-    const strip = stripRef.current;
-    if (!strip) return;
-    const panelH = strip.clientHeight;
-    const mid = strip.scrollTop + panelH / 2;
-    let best = 0;
-    let bestDist = Infinity;
-    tilesRef.current.forEach((t, i) => {
-      if (!t) return;
-      const dist = t.offsetTop + t.offsetHeight / 2 - mid;
-      if (Math.abs(dist) < bestDist) { bestDist = Math.abs(dist); best = i; }
-      const img = imgsRef.current[i];
-      if (img && !reduce) {
-        const frac = Math.max(-1, Math.min(1, dist / panelH));
-        img.style.transform = `translateY(${(-frac * 16).toFixed(2)}%) scale(1.36)`;
-      }
-    });
-    setActive(best);
+  // touch swipe
+  const onTouchStart = (e: React.TouchEvent) => { touchRef.current = e.touches[0].clientY; nudge(); };
+  const onTouchEnd = (e: React.TouchEvent) => {
+    if (touchRef.current == null) return;
+    const dy = e.changedTouches[0].clientY - touchRef.current;
+    if (Math.abs(dy) > 40) step(dy < 0 ? 1 : -1);
+    touchRef.current = null;
   };
 
-  const onScroll = () => {
-    if (rafRef.current) return;
-    rafRef.current = requestAnimationFrame(() => {
-      rafRef.current = 0;
-      measure();
-    });
-  };
-
+  // route the mouse wheel into one slide per gesture; release at the ends
   useEffect(() => {
-    measure();
-    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
+    const vp = viewportRef.current;
+    if (!vp || reduce) return;
+    const onWheel = (e: WheelEvent) => {
+      const down = e.deltaY > 0;
+      if ((down && activeRef.current === last) || (!down && activeRef.current === 0)) return;
+      e.preventDefault();
+      if (wheelLockRef.current || Math.abs(e.deltaY) < 4) return;
+      wheelLockRef.current = true;
+      nudge();
+      step(down ? 1 : -1);
+      window.setTimeout(() => { wheelLockRef.current = false; }, SCROLL_MS);
+    };
+    vp.addEventListener("wheel", onWheel, { passive: false });
+    return () => vp.removeEventListener("wheel", onWheel);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [reduce]);
+
+  // autoplay — ping-pong; idle while hovered/focused, in cooldown, or tab hidden
+  useEffect(() => {
+    if (reduce) return;
+    const id = window.setInterval(() => {
+      if (hoverRef.current || document.hidden || performance.now() < resumeAtRef.current) return;
+      let next = activeRef.current + dirRef.current;
+      if (next > last) { dirRef.current = -1; next = activeRef.current - 1; }
+      else if (next < 0) { dirRef.current = 1; next = activeRef.current + 1; }
+      goTo(next);
+    }, AUTO_MS);
+    return () => window.clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [reduce]);
+
+  const slideT = reduce ? undefined : `transform ${SCROLL_MS}ms ${SLIDE_EASE}`;
 
   return (
     <section className={`${styles.hero2} ${styles.hf}`} id="projects" ref={sectionRef}>
       <motion.div className={styles.hfLeft} style={{ y: copyY, opacity: copyOpacity }}>
-        <Intro reduce={reduce} />
-        <MetaRow reduce={reduce} />
+        <motion.div className={styles.h2Copy} variants={stagger(reduce)} initial="hidden" animate="visible">
+          <motion.h1 className={styles.h2Title} variants={item(reduce)}>{TITLE}</motion.h1>
+          <motion.div className={styles.hxCtas} variants={item(reduce)}>
+            <a href="#contact" className={styles.hxCtaPrimary}>Get in touch</a>
+            <a href="#experience" className={styles.hxCtaGhost}>See experience</a>
+          </motion.div>
+        </motion.div>
+
+        <motion.div className={styles.hfFoot} variants={item(reduce)} initial="hidden" animate="visible">
+          <p className={styles.h2Lead}>{LEAD}</p>
+          <div className={styles.h2Meta}>
+            <div className={styles.hxStats}>
+              {STATS.map((s) => (
+                <div key={s.num} className={styles.hxStat}>
+                  <span className={styles.hxStatNum}>{s.num}</span>
+                  <span className={styles.hxStatLabel}>{s.label}</span>
+                </div>
+              ))}
+            </div>
+            <span className={styles.hxMeta}>{LOCATION}&nbsp;·&nbsp;<Clock /></span>
+          </div>
+        </motion.div>
       </motion.div>
 
-      <div className={styles.hfPanel}>
+      <div
+        className={styles.hfPanel}
+        onPointerEnter={() => { hoverRef.current = true; }}
+        onPointerLeave={() => { hoverRef.current = false; }}
+        onPointerDown={nudge}
+        onFocusCapture={() => { hoverRef.current = true; }}
+        onBlurCapture={() => { hoverRef.current = false; }}
+      >
         <span className={`${styles.sideLabel} ${styles.hfPanelLabel}`}>Selected work</span>
 
-        <div className={styles.hfStrip} ref={stripRef} onScroll={onScroll}>
-          {projects.map((p, i) => (
-            <article
-              key={p.name}
-              ref={(el) => { tilesRef.current[i] = el; }}
-              className={styles.hfTile}
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={p.image}
-                alt={p.name}
-                draggable={false}
-                ref={(el) => { imgsRef.current[i] = el; }}
-              />
-              <div className={styles.hfTileMeta}>
-                <span className={styles.hfTileName}>{p.name}</span>
-                <span className={styles.hfTileTag}>{p.tag}</span>
-              </div>
-            </article>
-          ))}
+        <div
+          className={styles.hfViewport}
+          ref={viewportRef}
+          onTouchStart={onTouchStart}
+          onTouchEnd={onTouchEnd}
+        >
+          <div
+            className={styles.hfTrack}
+            style={{ transform: `translateY(${-active * 100}%)`, transition: slideT }}
+          >
+            {projects.map((p, i) => (
+              <article key={p.name} className={styles.hfTile}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={p.image}
+                  alt={p.name}
+                  draggable={false}
+                  style={
+                    reduce
+                      ? undefined
+                      : {
+                          transform: `translateY(${(active - i) * SLIDE_PARALLAX}%) scale(${SLIDE_SCALE})`,
+                          transition: `transform ${SCROLL_MS}ms ${SLIDE_EASE}`,
+                        }
+                  }
+                />
+                <div className={styles.hfTileMeta}>
+                  <span className={styles.hfTileName}>{p.name}</span>
+                  <span className={styles.hfTileTag}>{p.tag}</span>
+                </div>
+              </article>
+            ))}
+          </div>
         </div>
 
         <nav className={styles.hfDots} aria-label="Selected work" onKeyDown={onKeyNav}>
@@ -370,7 +471,7 @@ function FilmstripHero({ reduce }: { reduce: boolean }) {
             type="button"
             className={styles.hfChevron}
             aria-label="Previous work"
-            onClick={() => step(-1)}
+            onClick={() => { nudge(); step(-1); }}
             disabled={active === 0}
           >
             ↑
@@ -383,7 +484,7 @@ function FilmstripHero({ reduce }: { reduce: boolean }) {
               data-active={active === i}
               aria-current={active === i}
               aria-label={`View ${p.name}`}
-              onClick={() => goTo(i)}
+              onClick={() => { nudge(); goTo(i); }}
             >
               {num(i)}
             </button>
@@ -392,8 +493,8 @@ function FilmstripHero({ reduce }: { reduce: boolean }) {
             type="button"
             className={styles.hfChevron}
             aria-label="Next work"
-            onClick={() => step(1)}
-            disabled={active === projects.length - 1}
+            onClick={() => { nudge(); step(1); }}
+            disabled={active === last}
           >
             ↓
           </button>
@@ -476,11 +577,124 @@ function GhostHero({ reduce }: { reduce: boolean }) {
   );
 }
 
-export default function Hero({ variant = "index" }: { variant?: HeroVariant }) {
+// ── variant D: BENTO — product identity + statement headline + φ bento grid ──
+// Adapted from the reference portfolio: a top identity card (avatar · name ·
+// role), an inviting statement headline, and a bento grid. The big media tile
+// hover-swaps through projects; the process card rhymes with the rest of the
+// site's Launch→Feedback→Refine cadence.
+const PROCESS = ["Build", "Ship", "Refine"] as const;
+
+function BentoHero({ reduce, anim }: { reduce: boolean; anim: BentoAnim }) {
+  const cellV = cell(anim, reduce);
+  // shared hover lift on every cell — subtle, never on the headline
+  const hover = reduce ? undefined : { y: -4, transition: { duration: 0.25, ease: EASE } };
+
+  // hold the intro until the loader overlay has fully cleared the hero
+  const [started, setStarted] = useState(false);
+  useEffect(() => onLoaderReady(() => setStarted(true)), []);
+
+  // feature image — settles in (gentle zoom-out) as the media tile reveals;
+  // a child of the cell, so the grid stagger drives it. Intro only, plays once.
+  const mediaImg: Variants = reduce
+    ? { hidden: { opacity: 1 }, visible: { opacity: 1 } }
+    : { hidden: { scale: 1.08 }, visible: { scale: 1, transition: { duration: 1.6, ease: EASE, delay: 0.2 } } };
+
+  // process pills — idle Build→Ship→Refine cadence, expressed as motion
+  const [phase, setPhase] = useState(0);
+  useEffect(() => {
+    if (reduce) return;
+    const id = window.setInterval(() => {
+      if (document.hidden) return;
+      setPhase((p) => (p + 1) % PROCESS.length);
+    }, 1600);
+    return () => window.clearInterval(id);
+  }, [reduce]);
+
+  return (
+    <section className={`${styles.hero2} ${styles.hb}`} id="projects">
+      <motion.div
+        className={styles.hbInner}
+        variants={stagger(reduce)}
+        initial="hidden"
+        animate={started ? "visible" : "hidden"}
+      >
+        <motion.div className={styles.hbLede} variants={cellV}>
+          <h1 className={styles.h2Title}>Let&apos;s build it together.</h1>
+          <div className={styles.hbActions}>
+            <div className={styles.hxCtas}>
+              <a href="#contact" className={styles.hxCtaPrimary}>Get in touch</a>
+              <a href="#experience" className={styles.hxCtaGhost}>See experience</a>
+            </div>
+          </div>
+        </motion.div>
+
+        <motion.div className={styles.hbBento} variants={bentoStagger(reduce)}>
+          {/* media — featured work: Urbanlab */}
+          <motion.div className={`${styles.hbCell} ${styles.hbMedia}`} variants={cellV} whileHover={hover}>
+            <motion.img
+              src="/urbanlab.png"
+              alt="Urbanlab Heritage — interactive heritage map"
+              className={styles.hbMediaImg}
+              draggable={false}
+              variants={mediaImg}
+            />
+            <div className={styles.hbMediaBar}>
+              <span className={styles.hbMediaName}>Urbanlab Heritage</span>
+              <span className={styles.hbMediaTag}>Interactive map</span>
+            </div>
+          </motion.div>
+
+          {/* craft caption */}
+          <motion.div className={`${styles.hbCell} ${styles.hbCraft}`} variants={cellV} whileHover={hover}>
+            <p className={styles.hbCraftText}>
+              I build <strong>storefronts, multi-step flows and CMS-driven
+              sites</strong> — responsive interfaces hand-coded in HTML, CSS,
+              PostCSS and JavaScript, translated straight from Figma.
+            </p>
+          </motion.div>
+
+          {/* stats */}
+          <motion.div className={`${styles.hbCell} ${styles.hbStatsCell}`} variants={cellV} whileHover={hover}>
+            <span className={styles.hbCellLabel}>By the numbers</span>
+            <div className={styles.hxStats}>
+              {STATS.map((s) => (
+                <div key={s.num} className={styles.hxStat}>
+                  <span className={styles.hxStatNum}>{s.num}</span>
+                  <span className={styles.hxStatLabel}>{s.label}</span>
+                </div>
+              ))}
+            </div>
+          </motion.div>
+
+          {/* process — Launch→Feedback→Refine cadence */}
+          <motion.div className={`${styles.hbCell} ${styles.hbProcess}`} variants={cellV} whileHover={hover}>
+            <div className={styles.hbProcessTop}>
+              <span className={styles.hbCellLabel}>How I work</span>
+              <p className={styles.hbProcessText}>
+                Continuously evolving post-launch, guided by feedback to keep a
+                user-focused, maintainable build.
+              </p>
+            </div>
+            <div className={styles.hbSteps}>
+              {PROCESS.map((s, i) => (
+                <span key={s} className={styles.hbStep} data-active={i === phase}>
+                  {s}
+                </span>
+              ))}
+            </div>
+          </motion.div>
+        </motion.div>
+      </motion.div>
+    </section>
+  );
+}
+
+export default function Hero({ variant = "index", anim = "rise" }: { variant?: HeroVariant; anim?: BentoAnim }) {
   const reduce = useReducedMotion() ?? false;
   if (variant === "featured") return <FeaturedHero reduce={reduce} />;
   if (variant === "carousel") return <CarouselHero reduce={reduce} />;
   if (variant === "filmstrip") return <FilmstripHero reduce={reduce} />;
   if (variant === "ghost") return <GhostHero reduce={reduce} />;
+  if (variant === "bento") return <BentoHero reduce={reduce} anim={anim} />;
   return <IndexHero reduce={reduce} />;
 }

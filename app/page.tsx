@@ -1,5 +1,6 @@
 import Image from "next/image";
 import styles from "./page.module.css";
+import Clock from "./clock";
 import Nav from "./nav";
 import Hero from "./components/hero";
 import ServicesCarousel from "./services-carousel";
@@ -22,18 +23,21 @@ export default function Home() {
       ──────────────────────────────────────────────────────────────────── */}
       <header className={styles.header}>
         <a href="#top" className={styles.logo} aria-label="Roman Robert — home">
-          <Image
-            src="/romanrobert.svg"
-            alt="Roman Robert"
-            width={111}
-            height={15}
-            priority
-          />
+          <span className={styles.logoAvatar} aria-hidden="true">
+            <Image
+              src="/robertt.png"
+              alt=""
+              width={42}
+              height={42}
+              className={styles.logoAvatarImg}
+            />
+          </span>
+          <span className={styles.logoText}>
+            <span className={styles.logoName}>Roman Robert</span>
+            <span className={styles.logoRole}>Frontend Developer</span>
+          </span>
         </a>
         <Nav />
-        <a href="#contact" className={styles.headerCta}>
-          Let&apos;s talk
-        </a>
       </header>
 
       <main>
@@ -46,8 +50,34 @@ export default function Home() {
               "ghost"    → colossal off-canvas index numeral behind a big preview
               "carousel" → (original) horizontal editorial card carousel
               "featured" → (original) one large glitch preview + name switcher
+              "bento"    → product identity (avatar·name·role) + statement
+                           headline + φ bento grid (hover-swap media · craft ·
+                           stats · process)
         ──────────────────────────────────────────────────────────────────── */}
-        <Hero variant="filmstrip" />
+        {/* ─── Depth — design principles used in the hero ─────────────────────
+            (graphic/UX depth cues, not post-processing effects)
+              1. Occlusion / overlap — nearer elements cross IN FRONT of farther
+                 ones. The heading overlaps the work card; what covers, is closer.
+              2. Cast shadow — the heading casts a glyph-shaped shadow onto the
+                 card it overlaps (contact shadow ⇒ "floating above").
+              3. Elevation — the card sits on a layered, directional shadow
+                 (tight contact → broad ambient) ⇒ reads as lifted off the page.
+              4. Atmospheric perspective — distant things lose contrast + focus;
+                 the far project numeral is faint + blurred ⇒ pushed back.
+              5. Scale contrast — huge heading/numeral vs. small captions sets a
+                 near/far reading and a clear hierarchy.
+              6. Consistent light source — every shadow falls one way (top-down),
+                 so the layers read as one coherent space.
+              7. Figure–ground — value + spacing separate subject from ground.
+              8. Motion parallax — layers move at different rates against the
+                 user's scroll (never autonomous "shaking") ⇒ a real depth cue.
+        ──────────────────────────────────────────────────────────────────── */}
+        {/* `anim` swaps the bento's entrance character (compare them live):
+              "rise"  → fade + travel up, clean editorial cadence ← default
+              "scale" → spring pop from 0.96, tactile
+              "blur"  → fade from soft blur, atmospheric depth
+              "wipe"  → top-down clip-path reveal, architectural */}
+        <Hero variant="bento" anim="blur" />
 
         {/* ─── What I do ──────────────────────────────────────────────────────
             Full-width section, horizontal card carousel + copy below
@@ -116,6 +146,9 @@ export default function Home() {
                   aria-label="Phone"
                 >Tel</a>
               </div>
+              <span className={styles.ctaLocalTime}>
+                Cluj&#8209;Napoca, Romania&nbsp;·&nbsp;<Clock />
+              </span>
             </div>
           </div>
 

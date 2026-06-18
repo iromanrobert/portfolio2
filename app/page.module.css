@@ -61,33 +61,26 @@
 
 /* ════════════════════════════════════════════════════════════
    HEADER
-   Grid: [wordmark 1fr] [contacts auto] [meta 1fr]
+   Transparent bar, content-width: [identity] ……… [nav] [CTA].
+   Only the nav-link group carries the muted pill chrome.
    ════════════════════════════════════════════════════════════ */
 .header {
   position: sticky;
   top: 0;
   z-index: 50;
   height: var(--header-h);
-  display: grid;
-  grid-template-columns: 1fr auto 1fr;
+  display: flex;
   align-items: center;
-  padding: 0 var(--pad-x);
-  background: transparent;
-  backdrop-filter: blur(0px);
-  border-bottom: 1px solid transparent;
-  transition: background 0.4s ease, border-color 0.4s ease, backdrop-filter 0.4s ease;
-}
-
-.header[data-scrolled="true"] {
-  background: rgba(0, 0, 0, 0.72);
-  backdrop-filter: blur(14px);
-  border-bottom-color: var(--line);
+  gap: var(--sp-4);
+  padding: var(--sp-2) var(--pad-x) 0;
 }
 
 .logo {
   justify-self: start;
   display: flex;
   align-items: center;
+  gap: 0.6rem;
+  color: var(--text);
   opacity: 0.9;
   transition: opacity 0.2s;
 }
@@ -96,10 +89,45 @@
   opacity: 1;
 }
 
+.logoAvatar {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  flex-shrink: 0;
+  overflow: hidden;
+  border-radius: 50%;
+  border: 1px solid var(--line-strong);
+  background: var(--bg-elev);
+}
+
+.logoAvatarImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.logoText {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.18;
+}
+
+.logoName {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.logoRole {
+  font-size: 16px;
+  color: var(--text-dim);
+}
+
 .nav {
   display: flex;
   align-items: center;
-  gap: var(--sp-4);
+  gap: var(--sp-3);
 }
 
 .navLink {
@@ -169,6 +197,13 @@
 .navGroup {
   display: flex;
   align-items: center;
+  gap: var(--sp-3);
+  margin-left: auto;
+  padding: 0.4rem 0.5rem 0.4rem 1.1rem;
+  background: rgba(255, 255, 255, 0.035);
+  backdrop-filter: blur(14px);
+  border: 1px solid var(--line);
+  border-radius: 999px;
 }
 
 /* ─── Mobile menu trigger — hidden on desktop ────────────────────────── */
@@ -198,7 +233,7 @@
    circle-reveal transition. */
 .header[data-menu-open="true"] {
   background: var(--bg);
-  border-bottom-color: transparent;
+  border-color: transparent;
 }
 
 .header[data-menu-open="true"] .logo,
@@ -325,6 +360,15 @@
 
   .navToggle {
     display: flex;
+  }
+
+  /* drop the pill on mobile — only the CTA + hamburger remain */
+  .navGroup {
+    gap: var(--sp-2);
+    padding: 0;
+    background: none;
+    backdrop-filter: none;
+    border: none;
   }
 }
 
@@ -1042,11 +1086,15 @@
   --canon-inner: 5vw;   /* margin toward the panel (1/9) */
   position: relative;
   isolation: isolate;
+  z-index: 60; /* lift the filmstrip above the sticky header (z 50) so it covers it */
   display: grid;
   grid-template-columns: 1fr 50vw;
   align-items: stretch;
   padding: 0; /* panel bleeds to the right viewport edge, full height */
+  overflow: visible; /* let the panel's negative margin-top spill up over the header */
+  border-bottom: none; /* drop the section underline */
 }
+.hf .h2Title { font-size: clamp(2.6rem, 5vw, 4.7rem); } /* a touch larger for the filmstrip */
 
 /* depth · light — a soft glow lifts the copy off the black page */
 .hero2.hf::before {
@@ -1069,26 +1117,38 @@
   justify-content: flex-start; /* canon: block sits in the upper register */
   gap: var(--sp-4);
   min-width: 0;
-  padding: var(--canon-top) var(--canon-inner) var(--canon-bottom) var(--canon-outer);
+  padding: var(--canon-top) var(--canon-inner) 40px var(--canon-outer);
 }
-.hfLeft .h2Meta { margin-top: auto; } /* meta settles toward the lower register */
+/* supporting copy + stats settle to the lower register, 40px off the bottom */
+.hfFoot {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  width: 100%;
+}
 
 .hfPanel {
   position: relative;
   z-index: 1;
-  height: calc(100svh - var(--header-h));
+  height: 100svh;
+  margin-top: calc(-1 * var(--header-h)); /* pull up over the header so the panel is full-height */
   min-width: 0;
   background: var(--bg-elev);
   /* depth · elevation — panel casts a shadow back over the copy plane */
   box-shadow: -48px 0 90px -34px rgba(0, 0, 0, 0.85);
 }
-.hfStrip {
-  height: 100%;
-  overflow-y: auto;
-  scroll-snap-type: y mandatory;
-  scrollbar-width: none;
+/* transform-track slider — viewport clips, track translateY slides between cards */
+.hfViewport {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  touch-action: pan-y; /* allow vertical swipe gesture without page hijack */
 }
-.hfStrip::-webkit-scrollbar { display: none; }
+.hfTrack {
+  height: 100%;
+  will-change: transform;
+}
 
 /* the work label, moved onto the panel where it belongs */
 .hfPanelLabel {
@@ -1101,10 +1161,10 @@
   margin: 0;
 }
 
+/* each tile is one full panel; tiles stack so the track is N panels tall */
 .hfTile {
   position: relative;
   height: 100%;
-  scroll-snap-align: center;
   overflow: hidden;
 }
 .hfTile img {
@@ -1113,12 +1173,9 @@
   object-fit: cover;
   display: block;
   user-select: none;
-  /* depth · parallax — pre-scaled so JS can drift the image within bounds */
-  transform: scale(1.36);
+  /* transform (parallax-on-slide) is set inline from hero.tsx; SLIDE_SCALE
+     overscan covers the lag so tile edges never show */
   will-change: transform;
-}
-@media (prefers-reduced-motion: reduce) {
-  .hfTile img { transform: none; }
 }
 /* depth · light — top light + bottom scrim + vignette, layered */
 .hfTile::after {
@@ -1141,6 +1198,15 @@
   display: flex;
   flex-direction: column;
   gap: 0.3rem;
+  /* hidden until the tile is hovered/focused */
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+.hfTile:hover .hfTileMeta,
+.hfTile:focus-within .hfTileMeta {
+  opacity: 1;
+  transform: none;
 }
 .hfTileName {
   font-size: clamp(1.2rem, 1.8vw, 1.7rem);
@@ -1301,6 +1367,150 @@
   color: var(--text-dim);
 }
 
+/* ── variant D: BENTO — statement headline + editorial φ bento grid ──
+   Identity (avatar · name · role) lives in the header now; the hero keeps the
+   site's editorial rhythm: side label → statement → lead → bento → foot, with
+   golden-step gaps and the shared h2Title/h2Lead scale. */
+/* top-anchored so the enlarged grid runs past the fold — a built-in scroll cue */
+.hero2.hb {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+}
+.hbInner {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+  width: 100%;
+}
+
+/* statement + CTAs share one baseline-aligned row */
+.hbLede {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--sp-3) var(--sp-5);
+}
+.hb .h2Title {
+  font-size: clamp(2.2rem, 5.4vw, 4.4rem);
+  white-space: nowrap;
+}
+.hbActions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--sp-2);
+}
+
+.hbBento {
+  display: grid;
+  grid-template-columns: 1.5fr 1fr 1fr;
+  grid-template-areas:
+    "media craft   process"
+    "media stats   process";
+  gap: var(--sp-2);
+}
+
+.hbCell {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: var(--sp-4);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--bg-elev);
+  min-width: 0;
+}
+
+.hbCellLabel {
+  font-size: 0.6rem;
+  font-weight: 500;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+/* media tile — image-filled feature work, caption overlaid */
+.hbMedia {
+  grid-area: media;
+  padding: 0;
+  overflow: hidden;
+  min-height: clamp(26rem, 46vw, 42rem);
+}
+.hbMediaImg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  user-select: none;
+}
+.hbMediaBar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  z-index: 1;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  padding: var(--sp-3) var(--sp-3) var(--sp-4);
+  background: linear-gradient(rgba(0, 0, 0, 0.72), transparent);
+}
+.hbMediaName { font-size: clamp(1.05rem, 1.6vw, 1.4rem); font-weight: 600; letter-spacing: -0.02em; }
+.hbMediaTag {
+  flex-shrink: 0;
+  font-size: 0.6rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+}
+
+/* craft caption */
+.hbCraft { grid-area: craft; justify-content: center; }
+.hbCraftText {
+  margin: 0;
+  font-size: clamp(1rem, 1.3vw, 1.18rem);
+  line-height: 1.55;
+  color: var(--text-dim);
+  text-wrap: balance;
+}
+.hbCraftText strong { color: var(--text); font-weight: 600; }
+
+/* stats */
+.hbStatsCell { grid-area: stats; justify-content: space-between; gap: var(--sp-3); }
+.hbStatsCell .hxStats { gap: var(--sp-4); }
+/* label on top, big number beneath (DOM order is num→label, so reverse) */
+.hbStatsCell .hxStat { flex-direction: column-reverse; gap: 0.3rem; }
+.hbStatsCell .hxStatNum { font-size: clamp(2.6rem, 4.5vw, 3.6rem); }
+
+/* process */
+.hbProcess { grid-area: process; justify-content: space-between; gap: var(--sp-4); }
+.hbProcessTop { display: flex; flex-direction: column; gap: var(--sp-2); }
+.hbProcessText {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.55;
+  color: var(--text-dim);
+}
+.hbSteps { display: flex; flex-wrap: wrap; gap: 0.45rem; }
+.hbStep {
+  padding: 0.45rem 0.9rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  transition: background 0.4s ease, border-color 0.4s ease, color 0.4s ease;
+}
+.hbStep[data-active="true"] {
+  background: var(--text);
+  border-color: var(--text);
+  color: var(--bg);
+}
+
 /* HERO V2 — collapse to a single column on small screens */
 @media (max-width: 900px) {
   .hero2 {
@@ -1329,6 +1539,17 @@
   .hfPanel { height: 78svh; border-left: 0; border-top: 1px solid var(--line); }
 
   .hgGhost { font-size: clamp(9rem, 38vw, 16rem); right: -8%; }
+
+  /* bento: stack to a single column, media first */
+  .hbBento {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "media"
+      "craft"
+      "stats"
+      "process";
+  }
+  .hb .h2Title { white-space: normal; }
 }
 
 
@@ -2634,6 +2855,14 @@
 .ctaSocials {
   display: flex;
   gap: var(--sp-1);
+}
+
+.ctaLocalTime {
+  margin-top: var(--sp-1);
+  font-size: 0.7rem;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
 }
 
 .socialBtn {

@@ -109,6 +109,10 @@ export default function Nav() {
           ))}
         </nav>
 
+        <a href="#contact" className={styles.headerCta}>
+          Let&apos;s talk
+        </a>
+
         <motion.button
           type="button"
           className={styles.navToggle}
