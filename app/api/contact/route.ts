@@ -3,11 +3,14 @@ import { render } from "@react-email/render";
 import NotificationEmail from "../../../emails/notification";
 import ConfirmationEmail from "../../../emails/confirmation";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
 const FROM   = process.env.RESEND_FROM_EMAIL!;
 const TO     = process.env.RESEND_TO_EMAIL!;
 
 export async function POST(request: Request) {
+  // Instantiate per-request — at module scope this throws during `next build`
+  // (page-data collection) when RESEND_API_KEY isn't present in the env.
+  const resend = new Resend(process.env.RESEND_API_KEY);
+
   const { name, email, message } = await request.json();
 
   if (!name?.trim() || !email?.trim() || !message?.trim()) {
