@@ -618,6 +618,11 @@ function BentoHero({ reduce, anim }: { reduce: boolean; anim: BentoAnim }) {
         initial="hidden"
         animate={started ? "visible" : "hidden"}
       >
+        <motion.span className={styles.heroAvail} variants={cellV}>
+          <span className={styles.heroAvailDot} aria-hidden="true" />
+          Available for work
+        </motion.span>
+
         <motion.div className={styles.hbLede} variants={cellV}>
           <h1 className={styles.h2Title}>Let&apos;s build it together.</h1>
           <div className={styles.hbActions}>

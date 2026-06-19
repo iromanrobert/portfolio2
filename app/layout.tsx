@@ -22,7 +22,11 @@ export default function RootLayout({
   return (
     <html lang="en" className={geistSans.variable}>
       <body>
-        <Loader />
+        {/* Curtain reveal style — swap to compare live. Options:
+            wipe-down · wipe-up · wipe-left · wipe-right · venetian · barn ·
+            iris · iris-corner · lift · drop · slide-left · slide-right ·
+            zoom · diagonal · split-v · split-h · blinds · two-tone */}
+        <Loader curtain="split-h" />
         {children}
       </body>
     </html>

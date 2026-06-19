@@ -1,8 +1,9 @@
-import Image from "next/image";
 import styles from "./page.module.css";
 import Clock from "./clock";
 import Nav from "./nav";
+import Brand from "./components/brand";
 import Hero from "./components/hero";
+import Projects from "./components/projects";
 import ServicesCarousel from "./services-carousel";
 import ContactForm from "./components/contact-form";
 import Experience from "./components/experience";
@@ -23,19 +24,7 @@ export default function Home() {
       ──────────────────────────────────────────────────────────────────── */}
       <header className={styles.header}>
         <a href="#top" className={styles.logo} aria-label="Roman Robert — home">
-          <span className={styles.logoAvatar} aria-hidden="true">
-            <Image
-              src="/robertt.png"
-              alt=""
-              width={42}
-              height={42}
-              className={styles.logoAvatarImg}
-            />
-          </span>
-          <span className={styles.logoText}>
-            <span className={styles.logoName}>Roman Robert</span>
-            <span className={styles.logoRole}>Frontend Developer</span>
-          </span>
+          <Brand />
         </a>
         <Nav />
       </header>
@@ -78,6 +67,18 @@ export default function Home() {
               "blur"  → fade from soft blur, atmospheric depth
               "wipe"  → top-down clip-path reveal, architectural */}
         <Hero variant="bento" anim="blur" />
+
+        {/* ─── Selected work ──────────────────────────────────────────────────
+            Dedicated 4-project showcase echoing the hero's bento language.
+            Swap the whole treatment via the `variant` prop:
+              "grid"  → plain equal 2×2                            ← default
+              "bento" → one tall flagship (φ-major) + 3-stack rail
+              "index" → vertical name index (wipe-fill) + swapping preview
+            NOTE: anchored #work to avoid colliding with the hero's #projects
+            id. If this becomes the canonical Projects section, move the
+            #projects anchor here and off the hero (and update nav.tsx).
+        ──────────────────────────────────────────────────────────────────── */}
+        <Projects variant="grid" />
 
         {/* ─── What I do ──────────────────────────────────────────────────────
             Full-width section, horizontal card carousel + copy below

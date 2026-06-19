@@ -8,6 +8,8 @@ export const projects: Project[] = [
   { name: "AI Chat Assistant", tag: "Conversational UI", image: "https://picsum.photos/seed/aichat/900/900" },
   { name: "Sales Funnels", tag: "Conversion funnels", image: "https://picsum.photos/seed/funnels/900/900" },
   { name: "CMS Websites", tag: "Webflow · CMS", image: "https://picsum.photos/seed/cmsdev/900/900" },
+  { name: "Booking Platform", tag: "Reservation flow", image: "https://picsum.photos/seed/booking/900/900" },
+  { name: "Analytics Dashboard", tag: "Data visualization", image: "https://picsum.photos/seed/analytics/900/900" },
 ];
 
 export const projectImages = projects.map((p) => p.image);

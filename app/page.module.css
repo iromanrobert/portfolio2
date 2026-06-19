@@ -18,22 +18,70 @@
   pointer-events: none;
 }
 
-.loaderInner {
+/* Curtain panels for the structural variants (split / blinds). The 1px
+   overage hides hairline seams between adjacent panels mid-animation. */
+.curtainHalf {
+  position: fixed;
+  left: 0;
+  right: 0;
+  height: calc(50% + 1px);
+  z-index: 9999;
+  background: var(--bg);
+  pointer-events: none;
+}
+.curtainHalfTop { top: 0; }
+.curtainHalfBottom { bottom: 0; }
+
+.curtainHalfV {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  width: calc(50% + 1px);
+  z-index: 9999;
+  background: var(--bg);
+  pointer-events: none;
+}
+.curtainHalfLeft { left: 0; }
+.curtainHalfRight { right: 0; }
+
+.curtainStrip {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  z-index: 9999;
+  background: var(--bg);
+  pointer-events: none;
+  transform-origin: top;
+}
+
+.loaderStage {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--sp-3);
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
 }
 
-.loaderLogo {
-  width: clamp(180px, 28vw, 400px) !important;
-  height: auto !important;
-}
-
+/* Primary focal element — big counting numeral with a small % unit. */
 .loaderCount {
-  font-size: 0.75rem;
-  letter-spacing: 0.12em;
+  display: flex;
+  align-items: flex-start;
+  font-size: clamp(5rem, 22vw, 17rem);
+  font-weight: 600;
+  letter-spacing: -0.04em;
+  line-height: 0.9;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  will-change: transform, filter;
+}
+
+.loaderPercent {
+  font-size: 0.3em;
+  font-weight: 500;
   color: var(--text-dim);
+  margin: 0.45em 0 0 0.18em;
 }
 
 
@@ -120,7 +168,7 @@
 }
 
 .logoRole {
-  font-size: 16px;
+  font-size: 12px;
   color: var(--text-dim);
 }
 
@@ -210,8 +258,8 @@
 .navToggle {
   display: none;
   position: relative;
-  width: 2.4rem;
-  height: 2.4rem;
+  width: 2.75rem;
+  height: 2.75rem;
   align-items: center;
   justify-content: center;
   background: transparent;
@@ -353,7 +401,7 @@
   opacity: 0.7;
 }
 
-@media (max-width: 640px) {
+@media (max-width: 768px) {
   .nav {
     display: none;
   }
@@ -362,7 +410,7 @@
     display: flex;
   }
 
-  /* drop the pill on mobile — only the CTA + hamburger remain */
+  /* drop the pill on tablet & mobile — only the CTA + hamburger remain */
   .navGroup {
     gap: var(--sp-2);
     padding: 0;
@@ -1511,6 +1559,20 @@
   color: var(--bg);
 }
 
+/* HERO V2 (bento) — 3-col → 2-col tablet step; full collapse handled below */
+@media (max-width: 1024px) {
+  /* media (tall, left) + craft/stats stacked right, process as a full-width
+     bottom bar — a calmer middle step before the single-column stack */
+  .hbBento {
+    grid-template-columns: 1.1fr 1fr;
+    grid-template-areas:
+      "media craft"
+      "media stats"
+      "process process";
+  }
+  .hb .h2Title { white-space: normal; }
+}
+
 /* HERO V2 — collapse to a single column on small screens */
 @media (max-width: 900px) {
   .hero2 {
@@ -1540,7 +1602,13 @@
 
   .hgGhost { font-size: clamp(9rem, 38vw, 16rem); right: -8%; }
 
-  /* bento: stack to a single column, media first */
+  /* inline availability pill replaces the fixed left-edge badge below 900px */
+  .heroAvail { display: inline-flex; }
+}
+
+/* bento — single column on phones; shorter feature tile so stats/process
+   aren't pushed far below the fold */
+@media (max-width: 640px) {
   .hbBento {
     grid-template-columns: 1fr;
     grid-template-areas:
@@ -1549,7 +1617,7 @@
       "stats"
       "process";
   }
-  .hb .h2Title { white-space: normal; }
+  .hbMedia { min-height: clamp(18rem, 60vw, 26rem); }
 }
 
 
@@ -1753,6 +1821,168 @@
   font-size: 0.65rem;
   color: var(--text-dim);
   line-height: 1.5;
+}
+
+
+/* ════════════════════════════════════════════════════════════
+   PROJECTS V2 — prop-switchable section, echoes the hero's bento
+   language (rounded --bg-elev tiles · caption scrim · 01/02 index ·
+   hover-lift). Variants: bento (featured + rail) · woven · index
+   ════════════════════════════════════════════════════════════ */
+.prSection {
+  position: relative;
+  padding: var(--sp-6) var(--pad-x);
+  border-bottom: 1px solid var(--line);
+  overflow: hidden;
+}
+
+.prHead {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-5);
+}
+
+.prTitle {
+  margin: 0;
+  font-size: clamp(1.8rem, 3.5vw, 2.8rem);
+  font-weight: 600;
+  letter-spacing: -0.03em;
+}
+
+.prCount {
+  font-size: 0.7rem;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── shared tile (used by bento + woven) ── */
+.prTile {
+  position: relative;
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--bg-elev);
+  isolation: isolate;
+}
+
+.prTileImg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  user-select: none;
+  filter: grayscale(0.5) contrast(1.04) brightness(0.85);
+  transition: filter 0.5s ease, transform 0.7s cubic-bezier(0.25, 1, 0.5, 1);
+}
+.prTile:hover .prTileImg {
+  filter: grayscale(0) brightness(0.95);
+  transform: scale(1.04);
+}
+
+.prTileNum {
+  position: absolute;
+  top: var(--sp-3);
+  left: var(--sp-3);
+  z-index: 1;
+  font-size: 0.62rem;
+  letter-spacing: 0.1em;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.6);
+}
+
+.prTileBar {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--sp-2);
+  padding: var(--sp-4) var(--sp-3) var(--sp-3);
+  background: linear-gradient(to top, rgba(8, 11, 8, 0.92) 0%, rgba(8, 11, 8, 0.45) 55%, transparent 100%);
+}
+
+.prTileName {
+  font-size: clamp(1rem, 1.5vw, 1.3rem);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: var(--text);
+}
+
+.prTileTag {
+  flex-shrink: 0;
+  font-size: 0.6rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #c1df6c;
+  white-space: nowrap;
+}
+
+/* ── variant: BENTO — one tall flagship (φ-major) + 3-stack rail ── */
+.prBento {
+  display: grid;
+  grid-template-columns: 1.618fr 1fr;
+  gap: var(--sp-2);
+  align-items: stretch;
+}
+.prBentoFeature {
+  min-height: clamp(24rem, 44vw, 40rem);
+}
+.prBentoRail {
+  display: grid;
+  grid-template-rows: repeat(3, 1fr);
+  gap: var(--sp-2);
+  min-width: 0;
+}
+.prBentoRail .prTile {
+  min-height: clamp(7rem, 13vw, 12rem);
+}
+
+/* ── variant: GRID — plain equal grid (4×2) ── */
+.prGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--sp-2);
+}
+.prGrid .prTile {
+  aspect-ratio: 4 / 3;
+}
+
+/* 4-across gets too narrow approaching tablet — go 2-up before the 1024 mark */
+@media (max-width: 1100px) {
+  .prGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 900px) {
+  .prBento {
+    grid-template-columns: 1fr;
+  }
+  .prBentoFeature {
+    min-height: clamp(18rem, 60vw, 26rem);
+  }
+  .prBentoRail {
+    grid-template-rows: none;
+    grid-auto-rows: clamp(9rem, 32vw, 14rem);
+  }
+}
+
+@media (max-width: 560px) {
+  .prGrid {
+    grid-template-columns: 1fr;
+  }
 }
 
 
